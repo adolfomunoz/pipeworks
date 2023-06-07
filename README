@@ -3,6 +3,7 @@ along devices that work with them.
 
 See https://github.com/mt-mods/pipeworks/wiki/ for detailed information about usage of this mod.
 
+
 Unlike the previous version of this mod, these pipes are rounded, and when 
 placed, they'll automatically join together as needed.  Pipes can go vertically 
 or horizontally, and there are enough nodes defined to allow for all possible 
@@ -24,3 +25,5 @@ textures.  Anything less just looks terrible.
 The teleport tube database used to be kept in a file named 'teleport_tubes'.
 The database is now kept in mod storage. The migration from 'teleport_tubes' is
 automatic. The old file is then kept around but is not used at all.
+
+adolfomunoz - I have done some minor edits due to strict type checking at some inventory images that was preventing me to include this mod into a 5.7.0-based server
