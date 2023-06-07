@@ -73,6 +73,10 @@ local register_one_tube = function(name, tname, dropname, desc, plain, noctrs, e
 		outsel = { -24/64, -10/64, -10/64, 24/64, 10/64, 10/64 }
 		wscale = {x = 1, y = 1, z = 0.01}
 	end
+	-- Added by Adolfo to make it work
+	if (type(iimg)=="table") then
+		iimg=inv
+	end
 
 	local rname = string.format("%s_%s", name, tname)
 	table.insert(tubenodes, rname)
