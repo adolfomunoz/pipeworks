@@ -1,18 +1,25 @@
+local S = minetest.get_translator("pipeworks")
+
 local straight = function(pos, node, velocity, stack) return {velocity} end
+local steel_tex = "[combine:16x16^[noalpha^[colorize:#D3D3D3"
+if minetest.get_modpath("default") then steel_tex = "default_steel_block.png" end
 
 minetest.register_node("pipeworks:steel_block_embedded_tube", {
-	description = "Airtight steelblock embedded tube",
+	description = S("Airtight steelblock embedded tube"),
 	tiles = {
-		"default_steel_block.png", "default_steel_block.png",
-		"default_steel_block.png", "default_steel_block.png",
-		"default_steel_block.png^pipeworks_tube_connection_metallic.png",
-		"default_steel_block.png^pipeworks_tube_connection_metallic.png",
+		steel_tex, steel_tex,
+		steel_tex, steel_tex,
+		steel_tex .. "^pipeworks_tube_connection_metallic.png",
+		steel_tex .. "^pipeworks_tube_connection_metallic.png",
 		},
 	paramtype = "light",
 	paramtype2 = "facedir",
-	groups = {cracky=1, oddly_breakable_by_hand = 1, tubedevice = 1},
+	groups = {cracky=1, oddly_breakable_by_hand = 1, tubedevice = 1, dig_glass = 2, pickaxey=5},
+	_mcl_hardness=1.6,
 	legacy_facedir_simple = true,
-	sounds = default.node_sound_stone_defaults(),
+	_sound_def = {
+        key = "node_sound_stone_defaults",
+    },
 	tube = {
 		connect_sides = {front = 1, back = 1,},
 		priority = 50,
@@ -24,16 +31,9 @@ minetest.register_node("pipeworks:steel_block_embedded_tube", {
 	},
 	after_place_node = pipeworks.after_place,
 	after_dig_node = pipeworks.after_dig,
+	on_rotate = pipeworks.on_rotate,
 })
-
-minetest.register_craft( {
-	output = "pipeworks:steel_block_embedded_tube 1",
-	recipe = {
-		{ "default:steel_ingot", "default:steel_ingot", "default:steel_ingot" },
-		{ "default:steel_ingot", "pipeworks:tube_1", "default:steel_ingot" },
-		{ "default:steel_ingot", "default:steel_ingot", "default:steel_ingot" }
-	},
-})
+pipeworks.ui_cat_tube_list[#pipeworks.ui_cat_tube_list+1] = "pipeworks:steel_block_embedded_tube"
 
 local pane_box = {
 	type = "fixed",
@@ -42,24 +42,33 @@ local pane_box = {
 		{ -8/16, -8/16, -1/16, 8/16, 8/16, 1/16 } -- pane
 	}
 }
+
+local texture_alpha_mode = minetest.features.use_texture_alpha_string_modes
+	and "clip" or true
+
 minetest.register_node("pipeworks:steel_pane_embedded_tube", {
 	drawtype = "nodebox",
-	description = "Airtight panel embedded tube ",
+	description = S("Airtight panel embedded tube"),
 	tiles = {
-		"pipeworks_pane_embedded_tube_sides.png^[transformR90",
-		"pipeworks_pane_embedded_tube_sides.png^[transformR90",
-		"pipeworks_pane_embedded_tube_sides.png",
-		"pipeworks_pane_embedded_tube_sides.png",
-		"pipeworks_pane_embedded_tube_ends.png", "pipeworks_pane_embedded_tube_ends.png",
-		},
+		pipeworks.make_tube_tile("pipeworks_pane_embedded_tube_sides.png^[transformR90"),
+		pipeworks.make_tube_tile("pipeworks_pane_embedded_tube_sides.png^[transformR90"),
+		pipeworks.make_tube_tile("pipeworks_pane_embedded_tube_sides.png"),
+		pipeworks.make_tube_tile("pipeworks_pane_embedded_tube_sides.png"),
+		pipeworks.make_tube_tile("pipeworks_pane_embedded_tube_ends.png"),
+		pipeworks.make_tube_tile("pipeworks_pane_embedded_tube_ends.png"),
+	},
+	use_texture_alpha = texture_alpha_mode,
 	node_box = pane_box,
 	selection_box = pane_box,
 	collision_box = pane_box,
 	paramtype = "light",
 	paramtype2 = "facedir",
-	groups = {cracky=1, oddly_breakable_by_hand = 1, tubedevice = 1},
+	groups = {cracky=1, oddly_breakable_by_hand = 1, tubedevice = 1, dig_glass = 2, pickaxey=5},
+	_mcl_hardness=1.6,
 	legacy_facedir_simple = true,
-	sounds = default.node_sound_stone_defaults(),
+	_sound_def = {
+        key = "node_sound_stone_defaults",
+    },
 	tube = {
 		connect_sides = {front = 1, back = 1,},
 		priority = 50,
@@ -71,13 +80,6 @@ minetest.register_node("pipeworks:steel_pane_embedded_tube", {
 	},
 	after_place_node = pipeworks.after_place,
 	after_dig_node = pipeworks.after_dig,
+	on_rotate = pipeworks.on_rotate,
 })
-
-minetest.register_craft( {
-	output = "pipeworks:steel_pane_embedded_tube 1",
-	recipe = {
-		{ "", "default:steel_ingot", "" },
-		{ "", "pipeworks:tube_1", "" },
-		{ "", "default:steel_ingot", "" }
-	},
-})
+pipeworks.ui_cat_tube_list[#pipeworks.ui_cat_tube_list+1] = "pipeworks:steel_pane_embedded_tube"

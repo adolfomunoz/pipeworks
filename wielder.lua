@@ -1,21 +1,33 @@
+local S = minetest.get_translator("pipeworks")
 local assumed_eye_pos = vector.new(0, 1.5, 0)
-
-local function vector_copy(v)
-	return { x = v.x, y = v.y, z = v.z }
-end
 
 local function delay(x)
 	return (function() return x end)
 end
 
 local function set_wielder_formspec(data, meta)
+	local size = "10.2,"..(7+data.wield_inv_height)
+	local list_background = ""
+	if minetest.get_modpath("i3") then
+		list_background = "style_type[box;colors=#666]"
+		for i=0, data.wield_inv_height-1 do
+			for j=0, data.wield_inv_width-1 do
+				list_background = list_background .. "box[".. ((10-data.wield_inv_width)*0.5)+(i*1.25) ..",".. 1+(j*1.25) ..";1,1;]"
+			end
+		end
+	end
 	meta:set_string("formspec",
-			"invsize[8,"..(6+data.wield_inv_height)..";]"..
-			"item_image[0,0;1,1;"..data.name_base.."_off]"..
-			"label[1,0;"..minetest.formspec_escape(data.description).."]"..
-			"list[current_name;"..minetest.formspec_escape(data.wield_inv_name)..";"..((8-data.wield_inv_width)*0.5)..",1;"..data.wield_inv_width..","..data.wield_inv_height..";]"..
-			"list[current_player;main;0,"..(2+data.wield_inv_height)..";8,4;]" ..
-			"listring[]")
+		"formspec_version[2]" ..
+		"size["..size.."]"..
+		pipeworks.fs_helpers.get_prepends(size)..
+		"item_image[0.5,0.5;1,1;"..data.name_base.."_off]"..
+		"label[1.5,1;"..minetest.formspec_escape(data.description).."]"..
+		list_background ..
+		"list[context;"..minetest.formspec_escape(data.wield_inv_name)..";"..((10-data.wield_inv_width)*0.5)..",1;"..data.wield_inv_width..","..data.wield_inv_height..";]"..
+		pipeworks.fs_helpers.get_inv((2+data.wield_inv_height)) ..
+		"listring[context;"..minetest.formspec_escape(data.wield_inv_name).."]" ..
+		"listring[current_player;main]"
+	)
 	meta:set_string("infotext", data.description)
 end
 
@@ -39,7 +51,7 @@ local can_tool_dig_node = function(nodename, toolcaps, toolname)
 		-- but a player holding one can - the game seems to fall back to the hand.
 		-- fall back to checking the hand's properties if the tool isn't the correct one.
 		local hand_caps = minetest.registered_items[""].tool_capabilities
-		diggable = minetest.get_dig_params(nodegroups, hand_caps)
+		diggable = minetest.get_dig_params(nodegroups, hand_caps).diggable
 	end
 	return diggable
 end
@@ -134,7 +146,7 @@ local function register_wielder(data)
 	data.fixup_node = data.fixup_node or function (pos, node) end
 	data.fixup_oldmetadata = data.fixup_oldmetadata or function (m) return m end
 	for _, state in ipairs({ "off", "on" }) do
-		local groups = { snappy=2, choppy=2, oddly_breakable_by_hand=2, mesecon=2, tubedevice=1, tubedevice_receiver=1 }
+		local groups = { snappy=2, choppy=2, oddly_breakable_by_hand=2, mesecon=2, tubedevice=1, tubedevice_receiver=1, axey=5 }
 		if state == "on" then groups.not_in_creative_inventory = 1 end
 		local tile_images = {}
 		for _, face in ipairs({ "top", "bottom", "side2", "side1", "back", "front" }) do
@@ -187,7 +199,10 @@ local function register_wielder(data)
 			paramtype2 = "facedir",
 			tubelike = 1,
 			groups = groups,
-			sounds = default.node_sound_stone_defaults(),
+			_mcl_hardness=0.6,
+			_sound_def = {
+				key = "node_sound_stone_defaults",
+			},
 			drop = data.name_base.."_off",
 			on_construct = function(pos)
 				local meta = minetest.get_meta(pos)
@@ -234,6 +249,7 @@ local function register_wielder(data)
 				end
 				pipeworks.scan_for_tube_objects(pos)
 			end,
+			on_rotate = pipeworks.on_rotate,
 			on_punch = data.fixup_node,
 			allow_metadata_inventory_put = function(pos, listname, index, stack, player)
 				if not pipeworks.may_configure(pos, player) then return 0 end
@@ -258,7 +274,7 @@ if pipeworks.enable_node_breaker then
 	local wield_inv_name = "pick"
 	data = {
 		name_base = name_base,
-		description = "Node Breaker",
+		description = S("Node Breaker"),
 		texture_base = "pipeworks_nodebreaker",
 		texture_stateful = { top = true, bottom = true, side2 = true, side1 = true, front = true },
 		tube_connect_sides = { top=1, bottom=1, left=1, right=1, back=1 },
@@ -321,6 +337,10 @@ if pipeworks.enable_node_breaker then
 		masquerade_as_owner = true,
 		sneak = false,
 		act = function(virtplayer, pointed_thing)
+			if minetest.is_protected(vector.add(virtplayer:get_pos(), assumed_eye_pos), virtplayer:get_player_name()) then
+				return
+			end
+
 			--local dname = "nodebreaker.act() "
 			local wieldstack = virtplayer:get_wielded_item()
 			local oldwieldstack = ItemStack(wieldstack)
@@ -351,7 +371,7 @@ if pipeworks.enable_node_breaker then
 							{pos=pointed_thing.under, gain=sound.gain})
 					end
 					wieldstack = virtplayer:get_wielded_item()
-				else
+				--~ else
 					--pipeworks.logger(dname.."couldn't dig node!")
 				end
 			end
@@ -373,14 +393,7 @@ if pipeworks.enable_node_breaker then
 		eject_drops = true,
 	}
 	register_wielder(data)
-	minetest.register_craft({
-		output = "pipeworks:nodebreaker_off",
-		recipe = {
-			{ "pipeworks:gear", "pipeworks:gear",   "pipeworks:gear"    },
-			{ "default:stone", "mesecons:piston",   "default:stone" },
-			{ "group:wood",    "mesecons:mesecon",  "group:wood" },
-		}
-	})
+	pipeworks.ui_cat_tube_list[#pipeworks.ui_cat_tube_list+1] = "pipeworks:nodebreaker_off"
 	-- aliases for when someone had technic installed, but then uninstalled it but not pipeworks
 	minetest.register_alias("technic:nodebreaker_off", "pipeworks:nodebreaker_off")
 	minetest.register_alias("technic:nodebreaker_on", "pipeworks:nodebreaker_on")
@@ -407,7 +420,7 @@ end
 if pipeworks.enable_deployer then
 	register_wielder({
 		name_base = "pipeworks:deployer",
-		description = "Deployer",
+		description = S("Deployer"),
 		texture_base = "pipeworks_deployer",
 		texture_stateful = { front = true },
 		tube_connect_sides = { back=1 },
@@ -419,19 +432,16 @@ if pipeworks.enable_deployer then
 		masquerade_as_owner = true,
 		sneak = false,
 		act = function(virtplayer, pointed_thing)
+			if minetest.is_protected(vector.add(virtplayer:get_pos(), assumed_eye_pos), virtplayer:get_player_name()) then
+				return
+			end
+
 			local wieldstack = virtplayer:get_wielded_item()
 			virtplayer:set_wielded_item((minetest.registered_items[wieldstack:get_name()] or {on_place=minetest.item_place}).on_place(wieldstack, virtplayer, pointed_thing) or wieldstack)
 		end,
 		eject_drops = false,
 	})
-	minetest.register_craft({
-		output = "pipeworks:deployer_off",
-		recipe = {
-			{ "group:wood",    "default:chest",    "group:wood"    },
-			{ "default:stone", "mesecons:piston",  "default:stone" },
-			{ "default:stone", "mesecons:mesecon", "default:stone" },
-		}
-	})
+	pipeworks.ui_cat_tube_list[#pipeworks.ui_cat_tube_list+1] = "pipeworks:deployer_off"
 	-- aliases for when someone had technic installed, but then uninstalled it but not pipeworks
 	minetest.register_alias("technic:deployer_off", "pipeworks:deployer_off")
 	minetest.register_alias("technic:deployer_on", "pipeworks:deployer_on")
@@ -440,7 +450,7 @@ end
 if pipeworks.enable_dispenser then
 	register_wielder({
 		name_base = "pipeworks:dispenser",
-		description = "Dispenser",
+		description = S("Dispenser"),
 		texture_base = "pipeworks_dispenser",
 		texture_stateful = { front = true },
 		tube_connect_sides = { back=1 },
@@ -459,12 +469,5 @@ if pipeworks.enable_dispenser then
 		end,
 		eject_drops = false,
 	})
-	minetest.register_craft({
-		output = "pipeworks:dispenser_off",
-		recipe = {
-			{ "default:desert_sand", "default:chest",    "default:desert_sand" },
-			{ "default:stone",       "mesecons:piston",  "default:stone"       },
-			{ "default:stone",       "mesecons:mesecon", "default:stone"       },
-		}
-	})
+	pipeworks.ui_cat_tube_list[#pipeworks.ui_cat_tube_list+1] = "pipeworks:dispenser_off"
 end

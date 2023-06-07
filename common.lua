@@ -86,10 +86,9 @@ function pipeworks.table_contains(tbl, element)
 end
 
 function pipeworks.table_extend(tbl, tbl2)
-	local index = #tbl + 1
-	for _, elt in ipairs(tbl2) do
-		tbl[index] = elt
-		index = index + 1
+	local oldlength = #tbl
+	for i = 1,#tbl2 do
+		tbl[oldlength + i] = tbl2[i]
 	end
 end
 
@@ -115,7 +114,7 @@ local fs_helpers = {}
 pipeworks.fs_helpers = fs_helpers
 function fs_helpers.on_receive_fields(pos, fields)
 	local meta = minetest.get_meta(pos)
-	for field, value in pairs(fields) do
+	for field in pairs(fields) do
 		if pipeworks.string_startswith(field, "fs_helpers_cycling:") then
 			local l = field:split(":")
 			local new_value = tonumber(l[2])
@@ -142,6 +141,56 @@ function fs_helpers.cycling_button(meta, base, meta_name, values)
 	end
 	local field = "fs_helpers_cycling:"..new_value..":"..meta_name
 	return base..";"..(texture_name and texture_name..";" or "")..field..";"..minetest.formspec_escape(text)..(addopts and ";"..addopts or "").."]"
+end
+
+function fs_helpers.get_inv(y)
+	local fs = {}
+	if minetest.get_modpath("i3") then
+		local inv_x = i3.settings.legacy_inventory and 0.75 or 0.22
+		local inv_y = (y + 0.4) or 6.9
+		local size, spacing = 1, 0.1
+		local hotbar_len = i3.settings.hotbar_len or (i3.settings.legacy_inventory and 8 or 9)
+		local inv_size = i3.settings.inv_size or (hotbar_len * 4)
+
+		table.insert(fs, "style_type[box;colors=#77777710,#77777710,#777,#777]")
+
+		for i = 0, hotbar_len - 1 do
+			table.insert(fs, "box["..(i * size + inv_x + (i * spacing))..","..inv_y..";"..size..","..size..";]")
+		end
+
+		table.insert(fs, "style_type[list;size="..size..";spacing="..spacing.."]")
+		table.insert(fs, "list[current_player;main;"..inv_x..","..inv_y..";"..hotbar_len..",1;]")
+
+		table.insert(fs, "style_type[box;colors=#666]")
+		for i=0, 2 do
+			for j=0, hotbar_len - 1 do
+				table.insert(fs, "box["..0.2+(j*0.1)+(j*size)..","..(inv_y+size+spacing+0.05)+(i*0.1)+(i*size)..";"..size..","..size..";]")
+			end
+		end
+
+		table.insert(fs, "style_type[list;size="..size..";spacing="..spacing.."]")
+		table.insert(fs, "list[current_player;main;"..inv_x..","..(inv_y + 1.15)..";"..hotbar_len..","..(inv_size / hotbar_len)..";"..hotbar_len.."]")
+	else
+		table.insert(fs, "list[current_player;main;0.22,"..y..";8,4;]")
+	end
+
+	return table.concat(fs, "")
+end
+
+function fs_helpers.get_prepends(size)
+	local prepend = {}
+
+	if minetest.get_modpath("i3") then
+		prepend = {
+			"no_prepend[]",
+			"bgcolor[black;neither]",
+			"background9[0,0;"..size..";i3_bg_full.png;false;10]",
+			"style_type[button;border=false;bgimg=[combine:16x16^[noalpha^[colorize:#6b6b6b]",
+			"listcolors[#0000;#ffffff20]"
+		}
+	end
+
+	return table.concat(prepend, "")
 end
 
 ---------
@@ -184,7 +233,7 @@ function pipeworks.create_fake_player(def, is_dynamic)
 		is_player = delay(true),
 		is_fake_player = true,
 
-		_formspec = def.formspec or default.gui_survival_form,
+		_formspec = def.formspec or "",
 		_hp = def.hp or 20,
 		_breath = 11,
 		_pos = def.position and table.copy(def.position) or vector.new(),
@@ -224,7 +273,7 @@ function pipeworks.create_fake_player(def, is_dynamic)
 				return self._inventory:set_stack(def.wield_list,
 					self._wield_index, item)
 			end
-			_wielded_item = ItemStack(item)
+			self._wielded_item = ItemStack(item)
 		end,
 		get_wielded_item = function(self, item)
 			if self._inventory and def.wield_list then
@@ -243,16 +292,17 @@ function pipeworks.create_fake_player(def, is_dynamic)
 		set_bone_position = delay(),
 		hud_change = delay(),
 	}
-	local _trash
 	-- Getter & setter functions
 	p.get_inventory_formspec, p.set_inventory_formspec
 		= get_set_wrap("formspec", is_dynamic)
 	p.get_breath, p.set_breath = get_set_wrap("breath", is_dynamic)
 	p.get_hp, p.set_hp = get_set_wrap("hp", is_dynamic)
 	p.get_pos, p.set_pos = get_set_wrap("pos", is_dynamic)
-	_trash, p.move_to = get_set_wrap("pos", is_dynamic)
 	p.get_wield_index, p.set_wield_index = get_set_wrap("wield_index", true)
 	p.get_properties, p.set_properties = get_set_wrap("properties", false)
+
+	-- For players, move_to and get_pos do the same
+	p.move_to = p.get_pos
 
 	-- Backwards compatibilty
 	p.getpos = p.get_pos
